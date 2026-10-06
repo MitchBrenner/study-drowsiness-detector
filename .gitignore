@@ -1,0 +1,11 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Per-user data (settings.json holds your private ntfy topic)
+settings.json
+sessions.json
+
+# macOS
+.DS_Store
