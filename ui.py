@@ -130,8 +130,12 @@ class StudyApp(ctk.CTk):
         self._mask = rounded_mask((CAM_W, CAM_H), 12)
         self._card_fill = Image.new("RGB", (CAM_W, CAM_H), CARD)
 
+        # Two pages that swap in place: home (camera + sidebar) and settings.
+        self.home_page = ctk.CTkFrame(self, fg_color=BG, corner_radius=0)
+        self.home_page.pack()
         self._build_camera_card()
         self._build_sidebar()
+        self._build_settings_page()
         self._show_placeholder("Camera is off", "Start a session and the camera will appear here.")
         self._set_status("Ready to study", "idle")
         self._refresh_today()
@@ -149,7 +153,7 @@ class StudyApp(ctk.CTk):
 
     def _build_camera_card(self):
         self.camera_card = ctk.CTkFrame(
-            self, width=CAM_W + 2 * CAM_INSET, height=CAM_H + 2 * CAM_INSET,
+            self.home_page, width=CAM_W + 2 * CAM_INSET, height=CAM_H + 2 * CAM_INSET,
             corner_radius=18, fg_color=CARD, border_width=3, border_color=CARD_BORDER,
         )
         self.camera_card.grid(row=0, column=0, padx=(GAP, GAP // 2), pady=GAP)
@@ -170,7 +174,7 @@ class StudyApp(ctk.CTk):
     # ---------- layout: sidebar ----------
 
     def _build_sidebar(self):
-        self.sidebar = ctk.CTkFrame(self, width=SIDEBAR_W, height=CAM_H + 2 * CAM_INSET,
+        self.sidebar = ctk.CTkFrame(self.home_page, width=SIDEBAR_W, height=CAM_H + 2 * CAM_INSET,
                                     corner_radius=18, fg_color=CARD, border_width=1,
                                     border_color=CARD_BORDER)
         self.sidebar.grid(row=0, column=1, padx=(GAP // 2, GAP), pady=GAP)
@@ -179,15 +183,25 @@ class StudyApp(ctk.CTk):
         self.session_view = ctk.CTkFrame(self.sidebar, fg_color="transparent")
         self.session_view.pack(fill="both", expand=True, padx=24, pady=18)
         self._build_session_view(self.session_view)
-        self._build_settings_page()
 
     def _open_settings(self):
-        # Covers the whole window; tracking and the alarm keep running underneath.
-        self.settings_page.place(x=0, y=0, relwidth=1, relheight=1)
-        self.settings_page.lift()
+        # Swap pages rather than overlaying one on the other: on macOS, removing an
+        # overlay doesn't repaint what was underneath. Tracking and the alarm keep
+        # running while settings are open.
+        if self.settings_page.winfo_ismapped():
+            return
+        self.settings_page.configure(width=self.home_page.winfo_width(),
+                                     height=self.home_page.winfo_height())
+        self.home_page.pack_forget()
+        self.settings_page.pack()
+        self.settings_page.focus_set()  # keep keyboard shortcuts (Esc) working
 
     def _close_settings(self):
-        self.settings_page.place_forget()
+        if not self.settings_page.winfo_ismapped():
+            return
+        self.settings_page.pack_forget()
+        self.home_page.pack()
+        self.home_page.focus_set()
 
     def _build_session_view(self, view):
         header = ctk.CTkFrame(view, fg_color="transparent")
@@ -238,6 +252,7 @@ class StudyApp(ctk.CTk):
 
     def _build_settings_page(self):
         page = self.settings_page = ctk.CTkFrame(self, fg_color=BG, corner_radius=0)
+        page.pack_propagate(False)  # same fixed size as the home page; see _open_settings
 
         header = ctk.CTkFrame(page, fg_color="transparent")
         header.pack(fill="x", padx=GAP, pady=(GAP, 14))
